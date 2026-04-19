@@ -135,73 +135,190 @@ def close_db(_error):
 
 
 def init_db():
-    app.config["UPLOAD_FOLDER"].mkdir(parents=True, exist_ok=True)
-    db = sqlite3.connect(app.config["DATABASE"])
-    db.executescript(
+    Path(app.config["UPLOAD_FOLDER"]).mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(app.config["DATABASE"])
+    conn.executescript(
         """
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email TEXT NOT NULL UNIQUE,
-            password_hash TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            last_login_at TEXT
+        CREATE TABLE IF NOT EXISTS users
+        (
+            id
+            INTEGER
+            PRIMARY
+            KEY
+            AUTOINCREMENT,
+            email
+            TEXT
+            NOT
+            NULL
+            UNIQUE,
+            password_hash
+            TEXT
+            NOT
+            NULL,
+            created_at
+            TEXT
+            NOT
+            NULL,
+            last_login_at
+            TEXT
         );
 
-        CREATE TABLE IF NOT EXISTS items (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            name TEXT NOT NULL,
-            cat TEXT NOT NULL,
-            val REAL NOT NULL,
-            low REAL NOT NULL,
-            high REAL NOT NULL,
-            conf INTEGER NOT NULL,
-            emoji TEXT NOT NULL,
-            date TEXT NOT NULL,
-            condition INTEGER NOT NULL DEFAULT 85,
-            image_url TEXT,
-            image_hash TEXT,
-            price_source TEXT,
-            quantity INTEGER NOT NULL DEFAULT 1,
-            listing_count INTEGER NOT NULL DEFAULT 0,
-            active_listing_count INTEGER NOT NULL DEFAULT 0,
-            coverage_status TEXT NOT NULL DEFAULT 'standard',
-            coverage_note TEXT,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL,
-            FOREIGN KEY (user_id) REFERENCES users(id)
-        );
+        CREATE TABLE IF NOT EXISTS items
+        (
+            id
+            INTEGER
+            PRIMARY
+            KEY
+            AUTOINCREMENT,
+            user_id
+            INTEGER
+            NOT
+            NULL,
+            name
+            TEXT
+            NOT
+            NULL,
+            cat
+            TEXT
+            NOT
+            NULL,
+            val
+            REAL
+            NOT
+            NULL,
+            low
+            REAL
+            NOT
+            NULL,
+            high
+            REAL
+            NOT
+            NULL,
+            conf
+            INTEGER
+            NOT
+            NULL,
+            emoji
+            TEXT
+            NOT
+            NULL,
+            date
+            TEXT
+            NOT
+            NULL,
+            condition
+            INTEGER
+            NOT
+            NULL
+            DEFAULT
+            85,
+            image_url
+            TEXT,
+            image_hash
+            TEXT,
+            price_source
+            TEXT,
+            quantity
+            INTEGER
+            NOT
+            NULL
+            DEFAULT
+            1,
+            listing_count
+            INTEGER
+            NOT
+            NULL
+            DEFAULT
+            0,
+            active_listing_count
+            INTEGER
+            NOT
+            NULL
+            DEFAULT
+            0,
+            coverage_status
+            TEXT
+            NOT
+            NULL
+            DEFAULT
+            'standard',
+            coverage_note
+            TEXT,
+            created_at
+            TEXT
+            NOT
+            NULL,
+            updated_at
+            TEXT
+            NOT
+            NULL,
+            FOREIGN
+            KEY
+        (
+            user_id
+        ) REFERENCES users
+        (
+            id
+        )
+            );
 
         CREATE INDEX IF NOT EXISTS idx_items_user_id ON items(user_id);
         CREATE INDEX IF NOT EXISTS idx_items_image_hash ON items(image_hash);
 
-        CREATE TABLE IF NOT EXISTS price_cache (
-            item_key TEXT PRIMARY KEY,
-            category TEXT NOT NULL,
-            avg REAL,
-            low REAL,
-            high REAL,
-            listing_count INTEGER NOT NULL DEFAULT 0,
-            active_listing_count INTEGER NOT NULL DEFAULT 0,
-            source TEXT NOT NULL,
-            coverage_note TEXT,
-            updated_at TEXT NOT NULL
+        CREATE TABLE IF NOT EXISTS price_cache
+        (
+            item_key
+            TEXT
+            PRIMARY
+            KEY,
+            category
+            TEXT
+            NOT
+            NULL,
+            avg
+            REAL,
+            low
+            REAL,
+            high
+            REAL,
+            listing_count
+            INTEGER
+            NOT
+            NULL
+            DEFAULT
+            0,
+            active_listing_count
+            INTEGER
+            NOT
+            NULL
+            DEFAULT
+            0,
+            source
+            TEXT
+            NOT
+            NULL,
+            coverage_note
+            TEXT,
+            updated_at
+            TEXT
+            NOT
+            NULL
         );
         """
     )
-    existing_columns = {row[1] for row in db.execute("PRAGMA table_info(items)").fetchall()}
+    existing_columns = {row[1] for row in conn.execute("PRAGMA table_info(items)").fetchall()}
     if "quantity" not in existing_columns:
-        db.execute("ALTER TABLE items ADD COLUMN quantity INTEGER NOT NULL DEFAULT 1")
+        conn.execute("ALTER TABLE items ADD COLUMN quantity INTEGER NOT NULL DEFAULT 1")
     if "listing_count" not in existing_columns:
-        db.execute("ALTER TABLE items ADD COLUMN listing_count INTEGER NOT NULL DEFAULT 0")
+        conn.execute("ALTER TABLE items ADD COLUMN listing_count INTEGER NOT NULL DEFAULT 0")
     if "active_listing_count" not in existing_columns:
-        db.execute("ALTER TABLE items ADD COLUMN active_listing_count INTEGER NOT NULL DEFAULT 0")
+        conn.execute("ALTER TABLE items ADD COLUMN active_listing_count INTEGER NOT NULL DEFAULT 0")
     if "coverage_status" not in existing_columns:
-        db.execute("ALTER TABLE items ADD COLUMN coverage_status TEXT NOT NULL DEFAULT 'standard'")
+        conn.execute("ALTER TABLE items ADD COLUMN coverage_status TEXT NOT NULL DEFAULT 'standard'")
     if "coverage_note" not in existing_columns:
-        db.execute("ALTER TABLE items ADD COLUMN coverage_note TEXT")
-    db.commit()
-    db.close()
+        conn.execute("ALTER TABLE items ADD COLUMN coverage_note TEXT")
+    conn.commit()
+    conn.close()
 
 
 def serialize_user(row):
@@ -520,7 +637,8 @@ def assess_pricing_detail(name, category):
         return False, "This item may be claim-eligible, but the label is too broad for reliable sold-listing pricing. Capture a clearer photo and use a more specific item type."
 
     if not specific_tokens and category == "Other":
-        if any(token in {"shoe", "sneaker", "boot", "backpack", "bag", "shirt", "jacket", "coat"} for token in non_modifier_tokens):
+        if any(token in {"shoe", "sneaker", "boot", "backpack", "bag", "shirt", "jacket", "coat"} for token in
+               non_modifier_tokens):
             return False, "This item may be personal property, but pricing needs a clearer photo of the full item and any visible brand or logo."
         return False, "This item may be personal property, but pricing needs a clearer photo and a more specific product name before it can be trusted."
 
@@ -631,11 +749,10 @@ def read_price_cache(item_name, category):
 def write_price_cache(item_name, category, payload):
     get_db().execute(
         """
-        INSERT INTO price_cache (
-            item_key, category, avg, low, high, listing_count, active_listing_count,
-            source, coverage_note, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(item_key) DO UPDATE SET
+        INSERT INTO price_cache (item_key, category, avg, low, high, listing_count, active_listing_count,
+                                 source, coverage_note, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(item_key) DO
+        UPDATE SET
             category = excluded.category,
             avg = excluded.avg,
             low = excluded.low,
@@ -974,12 +1091,11 @@ def create_item():
     timestamp = now_iso()
     cursor = get_db().execute(
         """
-        INSERT INTO items (
-            user_id, name, cat, val, low, high, conf, emoji, date,
-            condition, image_url, image_hash, price_source, quantity, listing_count,
-            active_listing_count,
-            coverage_status, coverage_note, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO items (user_id, name, cat, val, low, high, conf, emoji, date,
+                           condition, image_url, image_hash, price_source, quantity, listing_count,
+                           active_listing_count,
+                           coverage_status, coverage_note, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             g.current_user["id"],
@@ -1160,7 +1276,6 @@ def generate_pdf():
 
 init_db()
 
-
 if __name__ == "__main__":
-    print("HomeVault backend running at http://localhost:5000")
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port, debug=False)
