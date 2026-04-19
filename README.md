@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-# Smart Home Inventory and Market Valuation
-=======
 # HomeVault - Smart Home Inventory and Market Valuation
 
 ## Quick Start
